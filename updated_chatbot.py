@@ -839,7 +839,7 @@ st.markdown("---")
 st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
          color: white; padding: 2rem; border-radius: 15px; text-align: center; margin: 2rem 0;">
-        <h3 style="margin: 0 0 1rem 0;">🚀 Aurora AI</h3>
+        <h3 style="margin: 0 0 1rem 0;"> Aurora AI</h3>
         <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
             <div style="text-align: center;">
             </div>
