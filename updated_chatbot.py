@@ -843,16 +843,6 @@ st.markdown("""
         <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
             <div style="text-align: center;">
             </div>
-            <div style="text-align: center;">
-                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚡</div>
-                <div style="font-weight: bold;">Respuestas Instantáneas</div>
-                <div style="font-size: 0.9rem; opacity: 0.8;">Análisis en tiempo real</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📈</div>
-                <div style="font-weight: bold;">Aumenta tus Ventas</div>
-                <div style="font-size: 0.9rem; opacity: 0.8;">Hasta 25% más revenue</div>
-            </div>
         </div>
     </div>
 """, unsafe_allow_html=True)
