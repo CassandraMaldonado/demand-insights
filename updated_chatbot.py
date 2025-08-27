@@ -1,14 +1,6 @@
-# app.py
-"""
-Streamlit app: Recomendador / Chatbot basado en reglas de asociación.
-- Modo local (rule-based) para respuestas rápidas y reproducibles.
-- Modo LLM (usa la API de OpenAI con la API key que el usuario paga).
-"""
-
 import streamlit as st
 import pandas as pd
 
-# Try to import optional dependencies with fallbacks
 try:
     import networkx as nx
     import matplotlib.pyplot as plt
@@ -28,9 +20,7 @@ import textwrap
 
 st.set_page_config(page_title="Aurora AI - Recomendador", layout="wide")
 
-# -------------------------
-# 1) Reglas y estadísticas (datos provistos)
-# -------------------------
+# 1) Reglas y estadísticas con los datos precargados
 RULES = [
     {
         "id": "R01",
@@ -197,9 +187,7 @@ STATS = {
 PRODUCTS = sorted({p for r in RULES for p in (r["antecedent"] + r["consequent"])} |
                   {p for p, _ in STATS["top_products_support"]})
 
-# -------------------------
 # 2) Helpers
-# -------------------------
 def rules_df():
     rows = []
     for r in RULES:
@@ -238,11 +226,11 @@ def match_rules_by_products(products_set):
 def format_rule_short(r):
     return f"{r['id']}: IF {' & '.join(r['antecedent'])} THEN {' & '.join(r['consequent'])} (support={r['support']:.4f}, conf={r['confidence']:.3f}, lift={r['lift']:.2f})"
 
-# Simple local rule-based answer generator (Spanish)
+# Simple local rule-based answer generator
 def rule_based_answer(question):
     products = set(find_products_in_text(question))
     if not products:
-        # No product mentioned -> provide top suggestions / bundles
+        # No product mentioned tehn it provides top suggestions / bundles
         top_bundles = [
             ("R01", "Kombucha Duo + Tortillas", "Kombucha de Cardamomo + Kombucha de Jengibre + Tortillas Mixtas", "8-10%"),
             ("R05", "Desayuno Antioxidante", "Huevos + Berries + Churros", "10% en tercer ítem"),
@@ -276,7 +264,7 @@ def rule_based_answer(question):
             answer_lines.append(f"  → Acción sugerida: {action} (mostrar en PDP y carrito).")
         return "\n".join(answer_lines), cited
 
-# Build system prompt for LLM mode (serializa reglas)
+# System prompt for LLM mode
 def build_system_prompt():
     header = (
         "Eres un asistente en español especializado en recomendaciones de producto para una tienda.\n"
@@ -302,11 +290,8 @@ def build_system_prompt():
 
     return header + stats_block + rules_text
 
-# -------------------------
-# 3) UI & Custom Styling
-# -------------------------
+# 3) Styling
 
-# Custom CSS for attractive styling
 st.markdown("""
 <style>
     /* Main container styling */
@@ -417,7 +402,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Main header with gradient background
+
 st.markdown("""
     <div class="main-header">
         <h1 style="margin: 0; font-size: 2.5rem; font-weight: bold;">
@@ -435,14 +420,14 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Sidebar with custom styling
+# Sidebar
 st.sidebar.markdown("""
     <div style="text-align: center; padding: 1rem; margin-bottom: 1rem;">
         <h2 style="color: white; margin: 0;">⚙️ Configuración</h2>
     </div>
 """, unsafe_allow_html=True)
 
-# Only show OpenAI options if the library is available
+# OpenAI options if the library is available
 if HAS_OPENAI:
     st.sidebar.markdown("### 🤖 Modo de IA")
     mode = st.sidebar.selectbox("Selecciona el modo de respuesta:", 
@@ -511,7 +496,7 @@ with col1:
             </div>
         """, unsafe_allow_html=True)
     
-    # Top products with attractive styling
+    # Top products 
     st.markdown("### 🏆 Top Productos (por frecuencia)")
     for i, (product, support) in enumerate(STATS["top_products_support"]):
         if i == 0:
@@ -563,7 +548,7 @@ with col2:
         </div>
     """, unsafe_allow_html=True)
 
-# Network graph visualization (only if libraries are available)
+# Network graph visualization
 if HAS_GRAPH_LIBS:
     st.markdown("### 🔗 Mapa de Conexiones de Productos")
     st.markdown("""
@@ -603,7 +588,7 @@ else:
 
 st.markdown("---")
 
-# Chat section with beautiful styling
+# Chat section
 st.markdown("""
     <div class="chat-container">
         <div style="text-align: center; margin-bottom: 1.5rem;">
@@ -617,7 +602,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Example prompts for better UX
+# Example prompts
 st.markdown("### 💡 Ejemplos de Preguntas")
 example_col1, example_col2, example_col3 = st.columns(3)
 
@@ -633,7 +618,7 @@ with example_col3:
     if st.button("📈 Mejores Oportunidades"):
         st.session_state.example_query = "¿Cuáles son las mejores oportunidades de cross-selling?"
 
-# Query input with better UX
+# Query input
 query = st.text_area(
     "✍️ Escribe tu pregunta aquí:", 
     height=120,
@@ -641,18 +626,18 @@ query = st.text_area(
     value=st.session_state.get('example_query', '')
 )
 
-# Clear the example query after displaying it
+
 if 'example_query' in st.session_state:
     del st.session_state.example_query
 
-# Options with better styling
+
 col_options1, col_options2 = st.columns(2)
 with col_options1:
     show_rule_matches = st.checkbox("📊 Mostrar reglas coincidentes", value=True)
 with col_options2:
     show_all_rules = st.checkbox("📋 Mostrar tabla completa abajo", value=False)
 
-# Enhanced send button
+
 send_col1, send_col2, send_col3 = st.columns([1, 2, 1])
 with send_col2:
     send_button = st.button("🚀 Consultar a Aurora AI", use_container_width=True)
@@ -661,12 +646,10 @@ if send_button:
     if not query.strip():
         st.warning("⚠️ Por favor, escribe una pregunta para que pueda ayudarte.")
     else:
-        # Show loading with spinner
         with st.spinner("🧠 Aurora AI está analizando tu consulta..."):
             if "Rule-based" in mode:
                 answer, cited = rule_based_answer(query)
                 
-                # Beautiful response card
                 st.markdown("""
                     <div class="response-card">
                         <h3 style="color: #667eea; margin-top: 0;">
@@ -710,14 +693,13 @@ if send_button:
                                 </div>
                             """, unsafe_allow_html=True)
             else:
-                # LLM mode -> need API key and OpenAI library
                 if not HAS_OPENAI:
                     st.error("❌ La librería OpenAI no está disponible. Instala 'openai' para usar el modo LLM.")
                 elif not api_key:
                     st.error("🔑 Para usar el modo LLM, ingresa tu API key de OpenAI en la barra lateral.")
                 else:
                     try:
-                        # Updated for newer OpenAI library versions
+                        # OpenAI library versions
                         from openai import OpenAI
                         client = OpenAI(api_key=api_key)
                         
@@ -740,7 +722,7 @@ if send_button:
                         
                         llm_text = response.choices[0].message.content.strip()
                         
-                        # Beautiful LLM response
+                        # LLM response
                         st.markdown("""
                             <div class="response-card">
                                 <h3 style="color: #667eea; margin-top: 0;">
@@ -756,7 +738,7 @@ if send_button:
                             </div>
                         """, unsafe_allow_html=True)
                         
-                        # Extract and display referenced rules
+                        # Extracting and displaying referenced rules
                         import re
                         refs = re.findall(r"\[R0?\d{1,2}\]", llm_text)
                         refs = [r.strip("[]") for r in refs]
@@ -778,7 +760,7 @@ if send_button:
 
 st.markdown("---")
 
-# Rules table section with beautiful styling
+# Rules table section
 if show_all_rules:
     st.markdown("### 📋 Tabla Completa de Reglas (Top 10)")
     st.markdown("""
@@ -799,7 +781,6 @@ if show_all_rules:
     
     st.dataframe(styled_df, height=400, use_container_width=True)
 
-# Download section with attractive styling
 st.markdown("---")
 st.markdown("### 📥 Exportar Datos")
 
@@ -816,7 +797,7 @@ with col_download1:
     )
 
 with col_download2:
-    # Create a summary report
+    # Summary report
     summary_text = f"""
 Aurora AI - Reporte de Reglas de Asociación
 
@@ -853,17 +834,14 @@ with col_download3:
         </div>
     """, unsafe_allow_html=True)
 
-# Footer with additional info
+# Footer
 st.markdown("---")
 st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
          color: white; padding: 2rem; border-radius: 15px; text-align: center; margin: 2rem 0;">
-        <h3 style="margin: 0 0 1rem 0;">🚀 Aurora AI - Potencia tus Ventas</h3>
+        <h3 style="margin: 0 0 1rem 0;">🚀 Aurora AI</h3>
         <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;">
             <div style="text-align: center;">
-                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯</div>
-                <div style="font-weight: bold;">Recomendaciones Precisas</div>
-                <div style="font-size: 0.9rem; opacity: 0.8;">Basadas en datos reales</div>
             </div>
             <div style="text-align: center;">
                 <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚡</div>
