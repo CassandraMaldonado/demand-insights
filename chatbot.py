@@ -1,15 +1,22 @@
-# app.py
-"""
-Streamlit app: Recomendador / Chatbot basado en reglas de asociación.
-- Modo local (rule-based) para respuestas rápidas y reproducibles.
-- Modo LLM (usa la API de OpenAI con la API key que el usuario pega).
-"""
-
 import streamlit as st
 import pandas as pd
-import networkx as nx
-import matplotlib.pyplot as plt
-import openai
+
+# Try to import optional dependencies with fallbacks
+try:
+    import networkx as nx
+    import matplotlib.pyplot as plt
+    HAS_GRAPH_LIBS = True
+except ImportError:
+    HAS_GRAPH_LIBS = False
+    st.warning("NetworkX and/or Matplotlib not available. Graph visualization will be disabled.")
+
+try:
+    import openai
+    HAS_OPENAI = True
+except ImportError:
+    HAS_OPENAI = False
+    st.warning("OpenAI library not available. LLM mode will be disabled.")
+
 import textwrap
 
 st.set_page_config(page_title="Aurora AI - Recomendador (Rules)", layout="wide")
@@ -299,10 +306,16 @@ st.markdown(
 
 # Sidebar
 st.sidebar.header("Configuración")
-api_key = st.sidebar.text_input("Pega tu OpenAI API key (si usarás modo LLM)", type="password")
-model_choice = st.sidebar.selectbox("Modelo OpenAI (si usas LLM)", ["gpt-3.5-turbo", "gpt-4"], index=0)
-mode = st.sidebar.radio("Modo de respuesta", ["Rule-based (local)", "LLM (OpenAI)"])
-st.sidebar.markdown("Modo LLM: el texto enviado a OpenAI incluye SOLO las reglas y estadísticas mostradas abajo; el modelo debe citar reglas usadas.")
+
+# Only show OpenAI options if the library is available
+if HAS_OPENAI:
+    api_key = st.sidebar.text_input("Pega tu OpenAI API key (si usarás modo LLM)", type="password")
+    model_choice = st.sidebar.selectbox("Modelo OpenAI (si usas LLM)", ["gpt-3.5-turbo", "gpt-4"], index=0)
+    mode = st.sidebar.radio("Modo de respuesta", ["Rule-based (local)", "LLM (OpenAI)"])
+    st.sidebar.markdown("Modo LLM: el texto enviado a OpenAI incluye SOLO las reglas y estadísticas mostradas abajo; el modelo debe citar reglas usadas.")
+else:
+    mode = "Rule-based (local)"
+    st.sidebar.warning("OpenAI no disponible. Solo modo rule-based.")
 
 # Show main stats and quick actions
 col1, col2 = st.columns([2, 1])
@@ -320,20 +333,24 @@ with col2:
     if st.button("Mostrar reglas principales"):
         st.dataframe(rules_df(), height=320)
 
-# network graph visualization (simple)
-st.subheader("Mapa conceptual: clusters de productos (visualización)")
-G = nx.Graph()
-# add nodes and edges derived from RULES (simplified: each antecedent and consequent added, connect antecedent->consequent)
-for r in RULES:
-    for a in r["antecedent"]:
-        for c in r["consequent"]:
-            G.add_node(a)
-            G.add_node(c)
-            G.add_edge(a, c)
-plt.figure(figsize=(10, 6))
-pos = nx.spring_layout(G, seed=42, k=0.4)
-nx.draw(G, pos, with_labels=True, node_color="#88ccff", node_size=800, font_size=8, edge_color="#666666")
-st.pyplot(plt.gcf())
+# Network graph visualization (only if libraries are available)
+if HAS_GRAPH_LIBS:
+    st.subheader("Mapa conceptual: clusters de productos (visualización)")
+    G = nx.Graph()
+    # add nodes and edges derived from RULES (simplified: each antecedent and consequent added, connect antecedent->consequent)
+    for r in RULES:
+        for a in r["antecedent"]:
+            for c in r["consequent"]:
+                G.add_node(a)
+                G.add_node(c)
+                G.add_edge(a, c)
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    pos = nx.spring_layout(G, seed=42, k=0.4)
+    nx.draw(G, pos, with_labels=True, node_color="#88ccff", node_size=800, font_size=8, edge_color="#666666", ax=ax)
+    st.pyplot(fig)
+else:
+    st.info("Visualización de grafo no disponible (requiere NetworkX y Matplotlib)")
 
 st.markdown("---")
 st.subheader("Chat / Consulta")
@@ -360,32 +377,39 @@ if st.button("Enviar pregunta"):
                     if r:
                         st.write(format_rule_short(r))
         else:
-            # LLM mode -> need API key
-            if not api_key:
+            # LLM mode -> need API key and OpenAI library
+            if not HAS_OPENAI:
+                st.error("OpenAI library no está disponible. Instala 'openai' para usar el modo LLM.")
+            elif not api_key:
                 st.error("Para usar el modo LLM pega tu OpenAI API key en la barra lateral.")
             else:
                 with st.spinner("Consultando OpenAI..."):
                     try:
-                        openai.api_key = api_key
+                        # Updated for newer OpenAI library versions
+                        from openai import OpenAI
+                        client = OpenAI(api_key=api_key)
+                        
                         system_prompt = build_system_prompt()
                         user_prompt = (
                             "Pregunta del usuario (español):\n"
                             + query
                             + "\n\nRespond in Spanish. Use ONLY the rules and stats provided. Cite rule ids used in [RXX] format."
                         )
-                        messages = [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ]
-                        resp = openai.ChatCompletion.create(
+                        
+                        response = client.chat.completions.create(
                             model=model_choice,
-                            messages=messages,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
                             temperature=0.2,
                             max_tokens=600,
                         )
-                        llm_text = resp["choices"][0]["message"]["content"].strip()
+                        
+                        llm_text = response.choices[0].message.content.strip()
                         st.markdown("### Respuesta (LLM usando reglas)")
                         st.write(llm_text)
+                        
                         # Attempt to extract referenced rules from the response (look for [Rxx])
                         import re
                         refs = re.findall(r"\[R0?\d{1,2}\]", llm_text)
